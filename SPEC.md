@@ -167,6 +167,29 @@ This document is the single source of truth for Acceptance Test-Driven Developme
   - `POST /api/v1/whim/hum`: Submit a gated hummed pitch contour (`Hold H`) for `-80ms` lag-compensated quantization.
   - `POST /api/v1/empath/mood`: Update the Empath's `MoodVector` and retrieve the newly surfaced 3 Memory Orbs.
 
+### REQ-11: Real macOS CoreMIDI `IAC Driver` Hardware Transmission (`python-rtmidi`)
+- `GarageBandIacMidiAdapter` must never be a hollow in-memory-only list:
+  - On initialization (when `enable_hardware_port=True`, the default), it inspects `mido.get_output_names()` for any port matching `"IAC"` (e.g., `"IAC Driver Bus 1"`) and opens it via `mido.open_output(port_name)`.
+  - If no existing `"IAC"` port is online in macOS *Audio MIDI Setup*, it opens a live virtual CoreMIDI output port `mido.open_output("Empath Conductor IAC", virtual=True)` so GarageBand receives real CoreMIDI packets out of the box without manual OS setup.
+  - Every `send_note_on`, `send_cc`, `send_sustain_pedal`, and `send_pitch_bend` call transmits the real `mido.Message` over the open CoreMIDI port AND appends the `SentMidiRecord` to `self.sent_messages`.
+
+### REQ-12: Pre-Synthesized `48000 Hz`, `124 BPM` Stems, Live Transport Loop & Stereo WAV Stream
+- `build_default_conductor_facade()` must never initialize with empty `np.zeros(0)` buffers:
+  - A deterministic stem synthesizer (`synthesize_default_124bpm_stems(sample_rate=48000, bpm=124.0)`) generates 1-bar (`92,903` samples at `124 BPM`, `48000 Hz`, matching `round(SampleClock.samples_per_bar)`) sample-locked buffers for:
+    - `drums`: 4-on-the-floor `55 Hz` kick transient + `2400 Hz` off-beat snare/hat sizzle.
+    - `bass`: driving `F1` (`43.65 Hz`) / `C2` (`65.41 Hz`) rolling sub-bassline.
+    - `robert_miles_children`: `F Natural Minor` dream piano harmonic waveform (`F4-Ab4-C5-Bb4-Ab4-G4-F4-Eb4`).
+    - `sufi_vocal`: `F Phrygian` microtonal vocal/ney harmonic waveform (`F4-Gb4-Ab4-C5`) with `1500-2500 Hz` presence formants.
+    - `berlin_acid_synth`: `F Phrygian` `303` resonant acid waveform.
+  - `EmpathConductorFacade.render_live_stereo_frame(frame_samples)` advances the transport clock, steps the active 4-Stage Lookahead Bridge stage (`STAGE_1 -> STAGE_2 -> STAGE_3 -> STAGE_4`) across bar boundaries, dispatches pre-fired bar MIDI motifs to GarageBand over CoreMIDI, mixes the active Main PA stem (`drums + bass + active melodic stem`) and Ghost Preview stem (`staged_ghost_asset_id`), and routes them through `DualChannelAudioRouterAdapter` (`STEREO_SPLIT`: Left = Ghost Preview, Right = Main PA).
+  - `GET /api/v1/audio/frame.wav` renders and returns a valid 16-bit stereo RIFF `audio/wav` audio block (`RMS > 0.05`) for direct browser WebAudio playback.
+
+### REQ-13: Interactive MacBook Keyboard + Mic Performance Deck UI (`GET /`) & CLI Launcher
+- `GET /` serves a self-contained HTML5 / WebAudio / Keyboard / Microphone **Empath Conductor Live Deck** interface:
+  - Captures physical MacBook `keydown` and `keyup` events for all 18 deck controls (`[1][2][3]`, `[Q][W][E]`, `[Hold Spacebar]` with continuous hold progress ramp, `[Up][Down][Left][Right]`, `[Hold V]` Web Speech / Mic whim, `[Hold H]` WebAudio autocorrelation pitch tracker for humming, `[Return]`, `[Backspace]`).
+  - Streams live stereo audio (`Left = Headphone Ghost Cue`, `Right = Main PA`) via WebAudio from `/api/v1/audio/frame.wav` and displays live HUD telemetry (3 Floating Memory Orbs, Active Gear, Scale Mode, Modal Lock badge, `CC 1` Filter cutoff, `drums` HPF Hz, and 4-Stage Bridge progress).
+- `src/future_music/infrastructure/fastapi_app.py` exports a module-level `app = create_empath_conductor_app()` and `main()` CLI entrypoint registered as `empath-conductor` in `pyproject.toml` (`[project.scripts]`).
+
 ---
 
 ## 4. Software Craftsmanship, `[VERIFIED ENGINE]` Determinism & Testing Pyramid Rules
@@ -188,9 +211,12 @@ This document is the single source of truth for Acceptance Test-Driven Developme
 4. **Testing Pyramid & Zero-Mocking Invariant**:
    - **Unit Tests (`tests/unit/`)**: Fast, pure tests of all domain entities, value objects, music theory, biquad DSP math, sample-clock math, suck-back phase reset, lag-compensated pitch quantizer, cosine vector prism, spectral critic, and 4-stage bridge planner.
    - **Integration Tests (`tests/integration/`)**: Tests wiring real `application` use cases + real `domain` + real `infrastructure` adapters.
-   - **Acceptance Tests (`tests/acceptance/`)**: End-to-end ATDD scenario tests verifying every requirement (`REQ-01` through `REQ-10`) through the full unmocked application stack and FastAPI HTTP interface.
+   - **Acceptance Tests (`tests/acceptance/`)**: End-to-end ATDD scenario tests verifying every requirement (`REQ-01` through `REQ-13`) through the full unmocked application stack and FastAPI HTTP interface.
    - **Pyramid Invariant**: `count(unit_tests) > count(integration_tests) >= count(acceptance_tests) >= 1` (enforced by `scripts/verify_craftsmanship.py`).
    - **Zero Mocking Invariant**: `unittest.mock`, `MagicMock`, `AsyncMock`, `patch`, and `mocker` are strictly forbidden in `tests/` (enforced via AST check in `scripts/verify_craftsmanship.py`). Every test function must contain substantive `assert` statements or `pytest.raises` checks.
+5. **Gate 4 — Zero-Hollow-Infrastructure & Live Playability Invariant**:
+   - Infrastructure adapters in `src/future_music/infrastructure/` must never act as disguised in-memory stubs or default to empty `0`-length audio buffers.
+   - `build_default_conductor_facade()` must produce non-zero audible stereo waveform output (`RMS > 0.05`) out of the box and open a real/virtual CoreMIDI port via `mido.open_output`.
 
 ---
 
@@ -201,3 +227,4 @@ This document is the single source of truth for Acceptance Test-Driven Developme
 - **Slice 3**: Sample-Locked DSP Stem Mixer, Separate `drums`/`bass` Channels, Real-Time Biquad High-Pass Filter (`20Hz -> 350Hz`), Spacebar Tension Hold, and Suck-Back Pause + Sample-0 Phase Reset Drop (`REQ-05`, `REQ-06`).
 - **Slice 4**: Input Gating (`Hold V` vs. `Hold H`), `-80ms` Lag-Compensated Hum-to-MIDI Chord-Tone Quantizer, Deterministic Voice Whim Parser, Dual-Channel Ghost Preview (`STEREO_SPLIT` & `DUAL_DEVICE`), 4-Stage Lookahead Bridge Planner with Structured Tool Calls, and Pre-Play Spectral Critic (`REQ-07`, `REQ-08`, `REQ-09`).
 - **Slice 5**: MacBook Keyboard Empath Deck Controller (all 18 key/gate actions), Full Conductor Application Facade, and Agent-Ready FastAPI Service (`/api/openapi.json`, `/api/docs`, `/api/v1/*`) + Complete Acceptance Suite (`REQ-10`).
+- **Slice 6**: Live CoreMIDI `IAC Driver` Hardware Transmission (`REQ-11`), Pre-Synthesized `48000 Hz` `124 BPM` Stems + Live Transport & WAV Stream (`REQ-12`), and Interactive MacBook Keyboard + Mic Performance Deck UI (`GET /`) + `uv run empath-conductor` CLI Launcher (`REQ-13`).

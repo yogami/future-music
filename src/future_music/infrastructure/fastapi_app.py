@@ -1,9 +1,10 @@
-"""Slice 5 (REQ-10): Agent-Ready FastAPI Service for the Empath Conductor AI DJ."""
+"""Slice 5 & 6 (REQ-10, REQ-12, REQ-13): Agent-Ready FastAPI Service and Live Empath Deck."""
 
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, Request
-from fastapi.responses import JSONResponse
+import uvicorn
+from fastapi import APIRouter, FastAPI, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from future_music.application.empath_conductor_facade import (
@@ -13,14 +14,17 @@ from future_music.application.empath_conductor_facade import (
 )
 from future_music.domain.clock_and_midi import ModalLockActiveError
 from future_music.domain.empath_memory import MoodVector
+from future_music.domain.stem_synthesis import encode_stereo_pcm16_wav
 from future_music.domain.whim_and_hum import (
     HumContourEvent,
     InputGateConflictError,
     InputGateInactiveError,
 )
+from future_music.infrastructure.live_deck_ui import get_live_deck_html
 
 VERIFIED_ENGINE_TAG: str = "[VERIFIED ENGINE]"
 HTTP_CONFLICT_STATUS: int = 409
+DEFAULT_WAV_FRAME_SAMPLES: int = 4800
 
 
 class MoodUpdateRequest(BaseModel):
@@ -94,7 +98,14 @@ def _get_facade(request: Request) -> EmpathConductorFacade:
     return facade
 
 
+ui_router = APIRouter(tags=["Live Empath Deck UI"])
 router = APIRouter(prefix="/api/v1", tags=["Empath Conductor v1"])
+
+
+@ui_router.get("/", response_class=HTMLResponse)
+def get_live_deck_page() -> HTMLResponse:
+    """Serve the interactive HTML5/WebAudio MacBook Keyboard Empath Deck UI (REQ-13)."""
+    return HTMLResponse(content=get_live_deck_html())
 
 
 @router.get("/health")
@@ -107,6 +118,18 @@ def get_health() -> dict[str, str]:
 def get_conductor_state(request: Request) -> dict[str, Any]:
     """Return live Empath Conductor state snapshot."""
     return _serialize_snapshot(_get_facade(request).snapshot())
+
+
+@router.get("/audio/frame.wav")
+def get_audio_frame_wav(
+    request: Request,
+    samples: int = Query(default=DEFAULT_WAV_FRAME_SAMPLES, ge=256, le=96000),
+) -> Response:
+    """Render and stream a 48kHz stereo PCM16 WAV block (Left=Ghost, Right=Main PA)."""
+    facade = _get_facade(request)
+    stereo = facade.render_live_stereo_frame(frame_samples=samples)
+    wav_bytes = encode_stereo_pcm16_wav(stereo, sample_rate=facade.clock_use_case.clock.sample_rate)
+    return Response(content=wav_bytes, media_type="audio/wav")
 
 
 @router.post("/empath/mood")
@@ -175,14 +198,23 @@ def create_empath_conductor_app(
     facade: EmpathConductorFacade | None = None,
 ) -> FastAPI:
     """Create the Agent-Ready FastAPI application exposing /api/openapi.json & /api/docs."""
-    app = FastAPI(
+    instance = FastAPI(
         title="Empath Conductor AI DJ",
         version="0.1.0",
         openapi_url="/api/openapi.json",
         docs_url="/api/docs",
     )
-    app.state.facade = facade if facade is not None else build_default_conductor_facade()
+    instance.state.facade = facade if facade is not None else build_default_conductor_facade()
     for err_cls in (ModalLockActiveError, InputGateInactiveError, InputGateConflictError):
-        app.add_exception_handler(err_cls, _conflict_exception_handler)
-    app.include_router(router)
-    return app
+        instance.add_exception_handler(err_cls, _conflict_exception_handler)
+    instance.include_router(ui_router)
+    instance.include_router(router)
+    return instance
+
+
+app: FastAPI = create_empath_conductor_app()
+
+
+def main(host: str = "127.0.0.1", port: int = 8000) -> None:
+    """Launch the live Empath Conductor AI DJ server and MacBook Keyboard Deck."""
+    uvicorn.run(app, host=host, port=port)
