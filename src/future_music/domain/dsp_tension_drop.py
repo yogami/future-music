@@ -51,17 +51,23 @@ def compute_biquad_hpf_coeffs(
     )
 
 
-def apply_biquad_hpf(signal: np.ndarray, coeffs: BiquadCoeffs) -> np.ndarray:
-    """Apply normalized 2nd-order Direct Form II Transposed biquad high-pass filter."""
+def apply_biquad_hpf_stateful(
+    signal: np.ndarray, coeffs: BiquadCoeffs, z1: float = 0.0, z2: float = 0.0
+) -> tuple[np.ndarray, float, float]:
+    """Apply normalized 2nd-order Direct Form II Transposed biquad HPF preserving state."""
     out = np.empty(signal.shape, dtype=np.float64)
-    z1, z2 = 0.0, 0.0
     for idx, sample in enumerate(signal):
         x_val = float(sample)
         y_val = coeffs.b0 * x_val + z1
         z1 = coeffs.b1 * x_val - coeffs.a1 * y_val + z2
         z2 = coeffs.b2 * x_val - coeffs.a2 * y_val
         out[idx] = y_val
-    return out
+    return (out, z1, z2)
+
+
+def apply_biquad_hpf(signal: np.ndarray, coeffs: BiquadCoeffs) -> np.ndarray:
+    """Apply normalized 2nd-order Direct Form II Transposed biquad high-pass filter."""
+    return apply_biquad_hpf_stateful(signal, coeffs)[0]
 
 
 def interpolate_hpf_cutoff(progress: float) -> float:

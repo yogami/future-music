@@ -195,12 +195,15 @@ def _schedule_bar_motif_if_needed(
         facade.clock_use_case.schedule_bar_motif(bar_start_beat=(curr_bar - 1) * 4, velocity=100)
 
 
+MAIN_PA_HEADROOM: float = 0.65
+
+
 def _render_live_frame_for_facade(
     facade: EmpathConductorFacade, frame_samples: int
 ) -> np.ndarray:
     """Mix drums, bass, active melodic motif (scaled by modal gain), and ghost cue."""
     prev_sample = facade.clock_use_case.clock.current_sample
-    rhythm_mono = facade.tension_use_case.render_audio_frame(frame_size=frame_samples)
+    rhythm = facade.tension_use_case.render_audio_frame(frame_size=frame_samples)
     _schedule_bar_motif_if_needed(facade, prev_sample, facade.clock_use_case.clock.current_sample)
     modal = facade.clock_use_case.modal_engine
     melodic_id = modal.active_asset.asset_id if modal.active_asset else "robert_miles_children"
@@ -208,7 +211,7 @@ def _render_live_frame_for_facade(
     mel_slice, facade.melodic_playhead = _extract_looped_slice(
         mel_buf, facade.melodic_playhead, frame_samples
     )
-    main_mono = rhythm_mono + (mel_slice * modal.current_state().audio_stem_gain)
+    main_mono = (rhythm + mel_slice * modal.current_state().audio_stem_gain) * MAIN_PA_HEADROOM
     staged_id = facade.whim_use_case.ghost_preview_state.staged_asset_id or ""
     ghost_buf = facade.melodic_stems.get(staged_id, np.zeros(0, dtype=np.float64))
     ghost_mono, facade.ghost_playhead = _extract_looped_slice(

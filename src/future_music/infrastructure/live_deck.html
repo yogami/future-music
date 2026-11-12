@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Empath Conductor — Live Creative Music Deck</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-page: #0b0e14;
+      --bg-card: #131924;
+      --bg-elevated: #1b2333;
+      --border-subtle: #334155;
+      --border-strong: #64748b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --accent-sky: #38bdf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #fb7185;
+      --focus-ring: #7dd3fc;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      accent-color: var(--accent-sky);
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    .shell {
+      max-inline-size: 1120px;
+      margin-inline: auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    :where(button, input, summary, [tabindex]):focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 3px;
+    }
+
+    .top-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.65rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .transport-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      min-inline-size: 44px;
+      min-block-size: 44px;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+      transition: transform 120ms ease-out, background-color 150ms ease-out, box-shadow 150ms ease-out;
+    }
+
+    @media (hover: hover) {
+      button:hover:not(:disabled) {
+        background-color: #243044;
+        box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
+      }
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    .btn-primary {
+      background-color: #0284c7;
+      border-color: var(--accent-sky);
+      color: #ffffff;
+    }
+
+    .btn-primary[aria-pressed="true"] {
+      background-color: #059669;
+      border-color: var(--accent-emerald);
+    }
+
+    .btn-mix {
+      background-color: #059669;
+      border-color: var(--accent-emerald);
+      color: #ffffff;
+    }
+
+    .btn-chip[aria-pressed="true"] {
+      background-color: #0c4a6e;
+      border-color: var(--accent-sky);
+      box-shadow: inset 0 0 0 1px var(--accent-sky);
+    }
+
+    .volume-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px;
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .volume-group label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      --slider-track-size: 0.45rem;
+      --slider-thumb-size: 1.15rem;
+      --slider-track-color: #334155;
+      --slider-fill-color: #38bdf8;
+      --slider-thumb-color: #f1f5f9;
+      --attr-min: 0;
+      --attr-max: 100;
+      --control-value: 75;
+      --slider-progress: calc((var(--control-value) - var(--attr-min)) / (var(--attr-max) - var(--attr-min)) * 100%);
+      appearance: none;
+      inline-size: 120px;
+      block-size: 2.2rem;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      block-size: var(--slider-track-size);
+      border-radius: 999px;
+      background: linear-gradient(
+        to right,
+        var(--slider-fill-color) var(--slider-progress),
+        var(--slider-track-color) var(--slider-progress)
+      );
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      inline-size: var(--slider-thumb-size);
+      block-size: var(--slider-thumb-size);
+      margin-block-start: calc((var(--slider-track-size) - var(--slider-thumb-size)) / 2);
+      border-radius: 50%;
+      border: 2px solid var(--accent-sky);
+      background: var(--slider-thumb-color);
+    }
+
+    input[type="range"]::-moz-range-track {
+      block-size: var(--slider-track-size);
+      border-radius: 999px;
+      background: var(--slider-track-color);
+    }
+
+    input[type="range"]::-moz-range-progress {
+      block-size: var(--slider-track-size);
+      border-radius: 999px;
+      background: var(--slider-fill-color);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      inline-size: var(--slider-thumb-size);
+      block-size: var(--slider-thumb-size);
+      border-radius: 50%;
+      border: 2px solid var(--accent-sky);
+      background: var(--slider-thumb-color);
+    }
+
+    .tempo-pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .guide-banner {
+      margin: 0;
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      background-color: #0f172a;
+      border-inline-start: 4px solid var(--accent-sky);
+      border-block: 1px solid var(--border-subtle);
+      border-inline-end: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    .guide-banner.is-alert {
+      border-inline-start-color: var(--accent-rose);
+      color: #fecdd3;
+    }
+
+    .section-card {
+      padding: 20px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+    }
+
+    .section-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-block-end: 14px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .orbs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .orb-card {
+      display: grid;
+      gap: 8px;
+      text-align: start;
+      padding: 16px;
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .orb-card[aria-pressed="true"] {
+      border-color: var(--accent-sky);
+      background-color: #0c3554;
+      box-shadow: inset 0 0 0 1px var(--accent-sky);
+    }
+
+    .orb-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--accent-sky);
+      font-weight: 600;
+    }
+
+    .orb-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .orb-sub {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+    }
+
+    .preview-bar {
+      margin-block-start: 16px;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .preview-bar.is-active {
+      border-color: var(--accent-emerald);
+      background-color: #0b2922;
+    }
+
+    .bridge-steps {
+      margin-block-start: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .bridge-step {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    .bridge-step.is-now {
+      border-color: var(--accent-amber);
+      color: var(--text-primary);
+      background-color: #2c2108;
+      font-weight: 700;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 16px;
+    }
+
+    .control-box {
+      padding: 18px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .control-box h3 {
+      margin: 0;
+      font-size: 1.08rem;
+    }
+
+    .muted-copy {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .tension-pad {
+      min-block-size: 72px;
+      background-color: #3b1725;
+      border-color: var(--accent-rose);
+      color: #ffe4e6;
+      font-size: 1rem;
+    }
+
+    .tension-pad[aria-pressed="true"] {
+      background-color: #9f1239;
+      border-color: #fda4af;
+    }
+
+    .sweep-meter {
+      inline-size: 100%;
+      block-size: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .sweep-fill {
+      block-size: 100%;
+      inline-size: var(--sweep-pct, 0%);
+      background-color: var(--accent-rose);
+      transition: inline-size 80ms linear;
+    }
+
+    .stepper-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      background-color: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .stepper-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .voice-form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .voice-form label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .voice-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .voice-row input[type="text"] {
+      flex: 1;
+      min-inline-size: 0;
+      min-block-size: 44px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font: inherit;
+    }
+
+    .studio-drawer {
+      padding: 16px 20px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      color: var(--text-secondary);
+    }
+
+    .studio-drawer summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-primary);
+      padding-block: 4px;
+    }
+
+    .studio-grid {
+      margin-block-start: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+      font-size: 0.88rem;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      button, .sweep-fill {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="top-header">
+      <div class="brand">
+        <h1>Empath Conductor</h1>
+        <p>Steer the vibe, preview tracks in your left ear, and trigger drops. Beats stay locked automatically.</p>
+      </div>
+      <div class="transport-bar" role="toolbar" aria-label="Music playback controls">
+        <button id="audioBtn" type="button" class="btn-primary" aria-pressed="false">Play Music</button>
+        <div class="volume-group">
+          <label for="volumeSlider">Volume</label>
+          <input id="volumeSlider" type="range" min="0" max="100" value="75" aria-valuetext="75 percent">
+        </div>
+        <span id="tempoPill" class="tempo-pill">124 BPM • Ready</span>
+      </div>
+    </header>
+
+    <p id="guideBanner" class="guide-banner" role="status" aria-live="polite">
+      Step 1: Press Play Music, then pick a Mood or tap any Next Idea card below to preview it in your left headphone.
+    </p>
+
+    <main class="shell">
+      <section class="section-card" aria-labelledby="mood-heading">
+        <div class="section-head">
+          <h2 id="mood-heading">1. Set the Mood</h2>
+          <p>Updates the 3 track ideas suggested for this moment</p>
+        </div>
+        <div class="chip-row" role="group" aria-label="Mood presets">
+          <button type="button" class="btn-chip mood-btn" data-mood="dreamy" aria-pressed="true">Dreamy 90s</button>
+          <button type="button" class="btn-chip mood-btn" data-mood="hypnotic" aria-pressed="false">Hypnotic &amp; Deep</button>
+          <button type="button" class="btn-chip mood-btn" data-mood="peak" aria-pressed="false">4 AM Peak Energy</button>
+        </div>
+      </section>
+
+      <section class="section-card" aria-labelledby="ideas-heading">
+        <div class="section-head">
+          <h2 id="ideas-heading">2. Pick What Plays Next</h2>
+          <p>Tap a card (or press 1, 2, 3) to hear it in your Left Ear before the crowd hears anything</p>
+        </div>
+        <div id="orbsGrid" class="orbs-grid"></div>
+        <div id="previewBar" class="preview-bar">
+          <span id="previewText">No preview playing yet. Tap any card above to audition it in your headphones.</span>
+          <div class="chip-row">
+            <button id="mixInBtn" type="button" class="btn-mix" aria-disabled="true">Mix It In (Enter)</button>
+            <button id="cancelPreviewBtn" type="button" aria-disabled="true">Cancel (Backspace)</button>
+          </div>
+        </div>
+        <div id="bridgeSteps" class="bridge-steps" aria-label="Transition progress">
+          <div class="bridge-step" data-stage="STAGE_1_THIN_MIDRANGE">1. Make Room</div>
+          <div class="bridge-step" data-stage="STAGE_2_PIVOT_CHORDS">2. Blend Chords</div>
+          <div class="bridge-step" data-stage="STAGE_3_TEASE_AND_RISER">3. Build Lift</div>
+          <div class="bridge-step" data-stage="STAGE_4_SUBBASS_RESOLVE_AND_DROP">4. Full Drop</div>
+        </div>
+      </section>
+
+      <section class="controls-grid" aria-label="Live creative performance controls">
+        <article class="control-box">
+          <h3>Musical Color</h3>
+          <p class="muted-copy">Shift the emotional harmonic flavor without hitting wrong notes.</p>
+          <div class="chip-row" role="group" aria-label="Musical color modes">
+            <button type="button" class="btn-chip scale-btn" data-key="Q" data-mode="NATURAL_MINOR" aria-pressed="true">Warm &amp; Dreamy (Q)</button>
+            <button type="button" class="btn-chip scale-btn" data-key="W" data-mode="PHRYGIAN" aria-pressed="false">Dark &amp; Hypnotic (W)</button>
+            <button type="button" class="btn-chip scale-btn" data-key="E" data-mode="DORIAN" aria-pressed="false">Bright &amp; Lifting (E)</button>
+          </div>
+          <p id="lockNote" class="muted-copy">Free to shift key anytime.</p>
+        </article>
+
+        <article class="control-box">
+          <h3>Tension &amp; Drop</h3>
+          <p class="muted-copy">Pull out the bass and sweep the kick upward, then let go on beat 1.</p>
+          <button id="tensionPad" type="button" class="tension-pad" aria-pressed="false">Hold to Build Tension — Release to Drop! (Space)</button>
+          <div class="sweep-meter" aria-hidden="true"><div id="sweepFill" class="sweep-fill"></div></div>
+          <div class="stepper-row">
+            <span>Synth Brightness</span>
+            <div class="stepper-btns">
+              <button id="brightDownBtn" type="button" aria-label="Dim synth brightness">-</button>
+              <span id="brightLabel">Warm</span>
+              <button id="brightUpBtn" type="button" aria-label="Brighten synth">+</button>
+            </div>
+          </div>
+          <div class="stepper-row">
+            <span>Melody Busyness</span>
+            <div class="stepper-btns">
+              <button id="densityDownBtn" type="button" aria-label="Simpler melody">-</button>
+              <span id="densityLabel">Balanced</span>
+              <button id="densityUpBtn" type="button" aria-label="Busier melody">+</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="control-box">
+          <h3>Voice &amp; Hum Studio</h3>
+          <p class="muted-copy">Ask for a vibe in plain English or hum a short riff synced to the beat.</p>
+          <div class="chip-row" role="group" aria-label="Quick voice prompts">
+            <button type="button" class="quick-voice-btn" data-phrase="bring in that warm 90s piano">Bring in Piano</button>
+            <button type="button" class="quick-voice-btn" data-phrase="go darker phrygian energy">Go Darker</button>
+            <button type="button" class="quick-voice-btn" data-phrase="strip the drums">Strip Drums</button>
+          </div>
+          <div class="voice-form">
+            <label for="whimInput">Describe what you want next</label>
+            <div class="voice-row">
+              <input id="whimInput" type="text" value="bring in that warm 90s piano">
+              <button id="sendVoiceBtn" type="button">Send Idea (V)</button>
+            </div>
+          </div>
+          <button id="humBtn" type="button">Hold to Hum a Melody (H)</button>
+          <p id="micStatus" class="muted-copy" aria-live="polite"></p>
+        </article>
+      </section>
+    </main>
+
+    <details class="studio-drawer">
+      <summary>Studio Routing, GarageBand MIDI &amp; Keyboard Shortcuts (Advanced)</summary>
+      <div class="studio-grid">
+        <div>
+          <h4>Headphone Stereo Split &amp; CoreMIDI</h4>
+          <p><strong>Left Channel:</strong> Private headphone cue preview.</p>
+          <p><strong>Right Channel:</strong> Live room speakers (Main PA).</p>
+          <p><strong>GarageBand CoreMIDI:</strong> Streams live notes &amp; filter sweeps to <code>Empath Conductor IAC</code> (-18 ms latency compensation).</p>
+        </div>
+        <div>
+          <h4>MacBook Keyboard Shortcuts</h4>
+          <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Preview Next Idea</p>
+          <p><kbd>Enter</kbd> Mix It In &bull; <kbd>Backspace</kbd> Cancel</p>
+          <p><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> Change Musical Color</p>
+          <p><kbd>Arrows</kbd> Brightness &amp; Busyness &bull; <kbd>Hold Space</kbd> Drop</p>
+        </div>
+        <div>
+          <h4>Engine Telemetry</h4>
+          <p id="rawTelemetry">Waiting for state...</p>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <script>
+    const MOOD_PRESETS = {
+      dreamy: { valence: 0.35, arousal: 0.55, tension: 0.30, nostalgia: 0.95, current_minutes: 0.0 },
+      hypnotic: { valence: 0.10, arousal: 0.70, tension: 0.70, nostalgia: 0.55, current_minutes: 0.0 },
+      peak: { valence: -0.20, arousal: 0.95, tension: 0.92, nostalgia: 0.20, current_minutes: 0.0 }
+    };
+
+    const STAGE_LABELS = {
+      STAGE_1_THIN_MIDRANGE: 'Step 1 of 4: Making space in the mix',
+      STAGE_2_PIVOT_CHORDS: 'Step 2 of 4: Blending transitional harmony',
+      STAGE_3_TEASE_AND_RISER: 'Step 3 of 4: Teasing the incoming groove',
+      STAGE_4_SUBBASS_RESOLVE_AND_DROP: 'Step 4 of 4: Resolving bass into full drop'
+    };
+
+    const COLOR_NAMES = {
+      NATURAL_MINOR: 'Warm & Dreamy',
+      PHRYGIAN: 'Dark & Hypnotic',
+      DORIAN: 'Bright & Lifting'
+    };
+
+    const ORB_VIBES = {
+      robert_miles_children: 'Nostalgic 90s piano lead',
+      sufi_vocal: 'Expressive vocal & flute motif',
+      berlin_acid_synth: 'Driving late-night 303 lead'
+    };
+
+    const FALLBACK_HUM_EVENTS = [
+      { onset_ms: 80.0, f0_hz: 349.23, velocity: 105 },
+      { onset_ms: 320.0, f0_hz: 440.0, velocity: 105 }
+    ];
+
+    let audioCtx = null;
+    let gainNode = null;
+    let playing = false;
+    let nextPlayTime = 0;
+    let spaceHeld = false;
+    let vHeld = false;
+    let hHeld = false;
+    let latestState = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    async function api(path, body) {
+      const opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+      const resp = await fetch(path, opts);
+      const data = await resp.json();
+      if (!resp.ok) {
+        const msg = (data.detail || '').includes('Modal Lock')
+          ? 'Vocals lock the current harmony so it never clashes. Cancel or switch tracks first.'
+          : (data.detail || 'That action is blocked right now.');
+        setGuideMessage(msg, true);
+        return null;
+      }
+      renderState(data);
+      return data;
+    }
+
+    function setGuideMessage(text, isAlert = false) {
+      const banner = $('guideBanner');
+      banner.textContent = text;
+      banner.classList.toggle('is-alert', isAlert);
+    }
+
+    function updateGuideForState(s) {
+      if (s.active_gear === 'GEAR_3_TACTILE_OVERRIDE') {
+        setGuideMessage('Building tension! Keep holding, then release to slam the beat back in.');
+        return;
+      }
+      if (s.staged_ghost_asset_id) {
+        const match = (s.surfaced_orbs || []).find((o) => o.asset_id === s.staged_ghost_asset_id);
+        const label = match ? match.title : s.staged_ghost_asset_id;
+        setGuideMessage(`Previewing "${label}" in your left ear. Click Mix It In (Enter) or Cancel (Backspace).`);
+        return;
+      }
+      if (s.active_bridge_stage) {
+        setGuideMessage(`Live Transition: ${STAGE_LABELS[s.active_bridge_stage] || 'Blending tracks...'}`);
+        return;
+      }
+      setGuideMessage(playing
+        ? 'Grooving live at 124 BPM! Tap any Next Track card to preview in your headphones, or hold Build Tension.'
+        : 'Step 1: Press Play Music, then pick a Mood or tap any Next Track card below to preview it.');
+    }
+
+    function formatBrightness(cc1) {
+      if (cc1 < 40) return 'Warm';
+      if (cc1 < 85) return 'Open';
+      return 'Bright';
+    }
+
+    function formatDensity(d) {
+      if (d <= 0.25) return 'Minimal';
+      if (d <= 0.5) return 'Balanced';
+      return 'Energetic';
+    }
+
+    function renderOrbs(s) {
+      const container = $('orbsGrid');
+      const orbs = s.surfaced_orbs || [];
+      container.innerHTML = '';
+      orbs.forEach((orb, idx) => {
+        const active = s.staged_ghost_asset_id === orb.asset_id;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'orb-card';
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        const fitLabel = idx === 0 ? 'Top Match' : idx === 1 ? 'Strong Fit' : 'Wildcard';
+        const title = orb.title || orb.asset_id;
+        const vibe = ORB_VIBES[orb.asset_id] || (COLOR_NAMES[orb.native_mode] || 'Compatible stem');
+        btn.innerHTML = `
+          <span class="orb-meta"><span>Idea ${orb.orb_slot} (${orb.orb_slot})</span><span>${fitLabel}</span></span>
+          <span class="orb-title">${title}</span>
+          <span class="orb-sub">${vibe}</span>
+        `;
+        btn.addEventListener('click', () => api('/api/v1/deck/key', { key_code: String(orb.orb_slot) }));
+        container.appendChild(btn);
+      });
+    }
+
+    function renderState(s) {
+      if (!s || !s.active_gear) return;
+      latestState = s;
+      $('tempoPill').textContent = `${Math.round(s.bpm)} BPM • ${playing ? 'Live' : 'Ready'}`;
+      renderOrbs(s);
+
+      const hasGhost = Boolean(s.staged_ghost_asset_id);
+      const previewBar = $('previewBar');
+      previewBar.classList.toggle('is-active', hasGhost);
+      const match = (s.surfaced_orbs || []).find((o) => o.asset_id === s.staged_ghost_asset_id);
+      $('previewText').textContent = hasGhost
+        ? `Headphone Preview (Left Ear): ${match ? match.title : s.staged_ghost_asset_id}`
+        : 'No preview playing yet. Tap any card above to audition it in your headphones.';
+      $('mixInBtn').setAttribute('aria-disabled', hasGhost ? 'false' : 'true');
+      $('cancelPreviewBtn').setAttribute('aria-disabled', hasGhost ? 'false' : 'true');
+
+      document.querySelectorAll('.bridge-step').forEach((el) => {
+        el.classList.toggle('is-now', el.dataset.stage === s.active_bridge_stage);
+      });
+
+      document.querySelectorAll('.scale-btn').forEach((btn) => {
+        btn.setAttribute('aria-pressed', btn.dataset.mode === s.active_scale_mode ? 'true' : 'false');
+      });
+
+      $('lockNote').textContent = s.modal_lock_active
+        ? 'Vocals are active — key locked so melodies stay in tune.'
+        : `Current Color: ${COLOR_NAMES[s.active_scale_mode] || s.active_scale_mode}`;
+
+      const holdingTension = s.active_gear === 'GEAR_3_TACTILE_OVERRIDE';
+      $('tensionPad').setAttribute('aria-pressed', holdingTension ? 'true' : 'false');
+      const pct = Math.min(100, Math.max(0, Math.round(((s.drums_hpf_hz - 20.0) / 330.0) * 100)));
+      $('sweepFill').style.setProperty('--sweep-pct', `${pct}%`);
+      $('brightLabel').textContent = formatBrightness(s.cc1_modulation);
+      $('densityLabel').textContent = formatDensity(s.note_density);
+      $('rawTelemetry').textContent = `Gear=${s.active_gear} | Sample=${s.current_sample} | CC1=${s.cc1_modulation} | Density=${s.note_density} | HPF=${s.drums_hpf_hz}Hz | Gate=${s.input_gate_mode}`;
+      updateGuideForState(s);
+    }
+
+    async function scheduleAudioLoop() {
+      while (playing && audioCtx) {
+        try {
+          const resp = await fetch('/api/v1/audio/frame.wav?samples=24000');
+          if (!playing || !audioCtx) break;
+          const raw = await resp.arrayBuffer();
+          const audioBuf = await audioCtx.decodeAudioData(raw);
+          const src = audioCtx.createBufferSource();
+          src.buffer = audioBuf;
+          src.connect(gainNode);
+          const startAt = Math.max(audioCtx.currentTime + 0.04, nextPlayTime);
+          src.start(startAt);
+          nextPlayTime = startAt + audioBuf.duration;
+          await api('/api/v1/state');
+          const leadMs = Math.max(80, Math.round((nextPlayTime - audioCtx.currentTime - 0.25) * 1000));
+          await new Promise((resolve) => setTimeout(resolve, leadMs));
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
+    }
+
+    function syncVolumeSlider() {
+      const slider = $('volumeSlider');
+      slider.style.setProperty('--attr-min', slider.min || 0);
+      slider.style.setProperty('--attr-max', slider.max || 100);
+      slider.style.setProperty('--control-value', slider.value);
+      slider.setAttribute('aria-valuetext', `${slider.value} percent`);
+      if (gainNode && audioCtx) {
+        gainNode.gain.setTargetAtTime(Number(slider.value) / 100.0, audioCtx.currentTime, 0.015);
+      }
+    }
+
+    async function togglePlay() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext({ sampleRate: 48000 });
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = Number($('volumeSlider').value) / 100.0;
+        gainNode.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      playing = !playing;
+      const btn = $('audioBtn');
+      btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+      btn.textContent = playing ? 'Pause Music' : 'Play Music';
+      if (playing) {
+        nextPlayTime = audioCtx.currentTime + 0.05;
+        scheduleAudioLoop();
+      } else if (latestState) {
+        renderState(latestState);
+      }
+    }
+
+    async function submitVoiceWhim(transcriptText) {
+      await api('/api/v1/deck/key', { key_code: 'HOLD_V' });
+      const res = await api('/api/v1/whim/voice', { transcript: transcriptText });
+      await api('/api/v1/deck/key', { key_code: 'RELEASE_V' });
+      if (res) {
+        $('micStatus').textContent = res.is_recognized
+          ? `Applied: ${res.target_asset_id || res.target_scale_mode || 'beat change'}`
+          : 'Try asking for "piano", "sufi vocal", "darker", or "strip drums".';
+      }
+      await api('/api/v1/state');
+    }
+
+    async function submitOpenVoiceWhim() {
+      const txt = $('whimInput').value || 'bring in that warm 90s piano';
+      const res = await api('/api/v1/whim/voice', { transcript: txt });
+      if (res) {
+        $('micStatus').textContent = res.is_recognized
+          ? `Applied: ${res.target_asset_id || res.target_scale_mode || 'beat change'}`
+          : 'Try "piano", "darker", or "strip drums".';
+      }
+      await api('/api/v1/state');
+    }
+
+    async function submitOpenHumContour() {
+      const res = await api('/api/v1/whim/hum', { events: FALLBACK_HUM_EVENTS });
+      if (res) {
+        const count = (res.quantized_notes || []).length;
+        $('micStatus').textContent = `Synced ${count} hummed melody notes to GarageBand!`;
+      }
+      await api('/api/v1/state');
+    }
+
+    function wireControls() {
+      $('audioBtn').addEventListener('click', togglePlay);
+      $('volumeSlider').addEventListener('input', syncVolumeSlider);
+      syncVolumeSlider();
+
+      document.querySelectorAll('.mood-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          document.querySelectorAll('.mood-btn').forEach((b) => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+          await api('/api/v1/empath/mood', MOOD_PRESETS[btn.dataset.mood]);
+        });
+      });
+
+      $('mixInBtn').addEventListener('click', () => {
+        if ($('mixInBtn').getAttribute('aria-disabled') === 'true') return;
+        api('/api/v1/deck/key', { key_code: 'RETURN' });
+      });
+
+      $('cancelPreviewBtn').addEventListener('click', () => {
+        if ($('cancelPreviewBtn').getAttribute('aria-disabled') === 'true') return;
+        api('/api/v1/deck/key', { key_code: 'BACKSPACE' });
+      });
+
+      document.querySelectorAll('.scale-btn').forEach((btn) => {
+        btn.addEventListener('click', () => api('/api/v1/deck/key', { key_code: btn.dataset.key }));
+      });
+
+      const pad = $('tensionPad');
+      const startTension = () => {
+        if (spaceHeld) return;
+        spaceHeld = true;
+        api('/api/v1/deck/key', { key_code: 'HOLD_SPACE', hold_progress: 1.0 });
+      };
+      const releaseTension = () => {
+        if (!spaceHeld) return;
+        spaceHeld = false;
+        api('/api/v1/deck/key', { key_code: 'RELEASE_SPACE' });
+      };
+      pad.addEventListener('pointerdown', startTension);
+      pad.addEventListener('pointerup', releaseTension);
+      pad.addEventListener('pointerleave', releaseTension);
+
+      $('brightDownBtn').addEventListener('click', () => api('/api/v1/deck/key', { key_code: 'DOWN' }));
+      $('brightUpBtn').addEventListener('click', () => api('/api/v1/deck/key', { key_code: 'UP' }));
+      $('densityDownBtn').addEventListener('click', () => api('/api/v1/deck/key', { key_code: 'LEFT' }));
+      $('densityUpBtn').addEventListener('click', () => api('/api/v1/deck/key', { key_code: 'RIGHT' }));
+
+      document.querySelectorAll('.quick-voice-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          $('whimInput').value = btn.dataset.phrase;
+          submitVoiceWhim(btn.dataset.phrase);
+        });
+      });
+
+      $('sendVoiceBtn').addEventListener('click', () => submitVoiceWhim($('whimInput').value || 'bring in that warm 90s piano'));
+      $('humBtn').addEventListener('click', async () => {
+        await api('/api/v1/deck/key', { key_code: 'HOLD_H' });
+        await submitOpenHumContour();
+        await api('/api/v1/deck/key', { key_code: 'RELEASE_H' });
+      });
+
+      const KEY_MAP = {
+        '1': '1', '2': '2', '3': '3',
+        q: 'Q', w: 'W', e: 'E',
+        Enter: 'RETURN', Backspace: 'BACKSPACE',
+        ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT'
+      };
+
+      window.addEventListener('keydown', async (ev) => {
+        if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+        if (KEY_MAP[ev.key]) {
+          ev.preventDefault();
+          await api('/api/v1/deck/key', { key_code: KEY_MAP[ev.key] });
+        } else if (ev.code === 'Space' && !spaceHeld) {
+          ev.preventDefault();
+          spaceHeld = true;
+          await api('/api/v1/deck/key', { key_code: 'HOLD_SPACE', hold_progress: 1.0 });
+        } else if (ev.key.toLowerCase() === 'v' && !vHeld) {
+          vHeld = true;
+          await api('/api/v1/deck/key', { key_code: 'HOLD_V' });
+        } else if (ev.key.toLowerCase() === 'h' && !hHeld) {
+          hHeld = true;
+          await api('/api/v1/deck/key', { key_code: 'HOLD_H' });
+        }
+      });
+
+      window.addEventListener('keyup', async (ev) => {
+        if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+        if (ev.code === 'Space' && spaceHeld) {
+          ev.preventDefault();
+          spaceHeld = false;
+          await api('/api/v1/deck/key', { key_code: 'RELEASE_SPACE' });
+        } else if (ev.key.toLowerCase() === 'v' && vHeld) {
+          vHeld = false;
+          await submitOpenVoiceWhim();
+          await api('/api/v1/deck/key', { key_code: 'RELEASE_V' });
+        } else if (ev.key.toLowerCase() === 'h' && hHeld) {
+          hHeld = false;
+          await submitOpenHumContour();
+          await api('/api/v1/deck/key', { key_code: 'RELEASE_H' });
+        }
+      });
+    }
+
+    wireControls();
+    api('/api/v1/state');
+  </script>
+</body>
+</html>

@@ -5,7 +5,10 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from future_music.domain.clock_and_midi import DEFAULT_SAMPLE_RATE
-from future_music.domain.dsp_tension_drop import apply_biquad_hpf, compute_biquad_hpf_coeffs
+from future_music.domain.dsp_tension_drop import (
+    apply_biquad_hpf_stateful,
+    compute_biquad_hpf_coeffs,
+)
 
 
 def _extract_looped_slice(
@@ -28,6 +31,8 @@ class SampleLockedStemMixerAdapter:
     bass_buffer: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float64))
     drums_playhead: int = 0
     bass_playhead: int = 0
+    hpf_z1: float = 0.0
+    hpf_z2: float = 0.0
 
     def load_stem_buffer(self, stem_name: str, buffer: np.ndarray) -> None:
         """Load a 1D float64 PCM buffer for 'drums' or 'bass'."""
@@ -35,6 +40,8 @@ class SampleLockedStemMixerAdapter:
         if stem_name == "drums":
             self.drums_buffer = arr
             self.drums_playhead = 0
+            self.hpf_z1 = 0.0
+            self.hpf_z2 = 0.0
             return
         if stem_name == "bass":
             self.bass_buffer = arr
@@ -43,16 +50,14 @@ class SampleLockedStemMixerAdapter:
         raise ValueError(f"Unsupported stem_name '{stem_name}'; expected 'drums' or 'bass'")
 
     def reset_playheads_to_zero(self) -> None:
-        """Reset both drums and bass playheads to Sample 0 for transient alignment."""
+        """Reset both drums and bass playheads and HPF state to Sample 0."""
         self.drums_playhead = 0
         self.bass_playhead = 0
+        self.hpf_z1 = 0.0
+        self.hpf_z2 = 0.0
 
     def render_mixed_chunk(
-        self,
-        num_samples: int,
-        drums_gain: float,
-        bass_gain: float,
-        drums_hpf_hz: float,
+        self, num_samples: int, drums_gain: float, bass_gain: float, drums_hpf_hz: float
     ) -> np.ndarray:
         """Render num_samples of HPF-filtered drums + gain-scaled bass and advance playheads."""
         drums_raw, self.drums_playhead = _extract_looped_slice(
@@ -62,6 +67,7 @@ class SampleLockedStemMixerAdapter:
             self.bass_buffer, self.bass_playhead, num_samples
         )
         coeffs = compute_biquad_hpf_coeffs(cutoff_hz=drums_hpf_hz, sample_rate=self.sample_rate)
-        drums_filtered = apply_biquad_hpf(drums_raw, coeffs) * drums_gain
-        bass_scaled = bass_raw * bass_gain
-        return drums_filtered + bass_scaled
+        drums_hpf, self.hpf_z1, self.hpf_z2 = apply_biquad_hpf_stateful(
+            drums_raw, coeffs, z1=self.hpf_z1, z2=self.hpf_z2
+        )
+        return (drums_hpf * drums_gain) + (bass_raw * bass_gain)

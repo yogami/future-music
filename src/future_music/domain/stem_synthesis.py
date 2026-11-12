@@ -1,4 +1,4 @@
-"""Slice 6 (REQ-12): Deterministic 124 BPM Stem Synthesis, WAV Encoding, & Bridge Bar Step."""
+"""Slice 6 & 7 (REQ-12, REQ-14): Clean Non-Clipping 124 BPM Stem Synthesis & WAV Encoding."""
 
 import math
 import wave
@@ -21,62 +21,103 @@ from future_music.domain.ghost_and_bridge import (
 PCM16_MAX: float = 32767.0
 STEREO_CHANNELS: int = 2
 PCM16_SAMPWIDTH: int = 2
+EDGE_RAMP_SEC: float = 0.006
 
 KICK_FREQ_HZ: float = 55.0
 SNARE_FREQ_HZ: float = 2400.0
 BASS_F1_HZ: float = 43.65
 BASS_C2_HZ: float = 65.41
+F3_HZ: float = 174.61
+EB4_HZ: float = 311.13
 F4_HZ: float = 349.23
 GB4_HZ: float = 369.99
+G4_HZ: float = 392.00
 AB4_HZ: float = 415.30
+BB4_HZ: float = 466.16
 C5_HZ: float = 523.25
-F3_HZ: float = 174.61
+F5_HZ: float = 698.46
 F6_FORMANT_HZ: float = 1746.14
 
+DREAM_PIANO_PHRASE_HZ: tuple[float, ...] = (
+    F4_HZ, AB4_HZ, C5_HZ, BB4_HZ, AB4_HZ, G4_HZ, F4_HZ, EB4_HZ
+)
+SUFI_VOCAL_PHRASE_HZ: tuple[float, ...] = (
+    F4_HZ, GB4_HZ, AB4_HZ, C5_HZ, C5_HZ, AB4_HZ, GB4_HZ, F4_HZ
+)
+ACID_LEAD_PHRASE_HZ: tuple[float, ...] = (
+    F3_HZ, F3_HZ, F4_HZ, GB4_HZ, AB4_HZ, GB4_HZ, F4_HZ, F3_HZ
+)
 
-def _synth_drums_and_bass(t_sec: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Synthesize 1-bar 55Hz kick + 2.4kHz snare drums stem and F1/C2 sub-bass stem."""
+
+def _bar_edge_envelope(t_sec: np.ndarray, total_sec: float) -> np.ndarray:
+    """Apply smooth 6ms fade-in/out so looping bar boundaries stay click-free."""
+    fade_in = np.minimum(t_sec / EDGE_RAMP_SEC, 1.0)
+    fade_out = np.minimum(np.maximum(total_sec - t_sec, 0.0) / EDGE_RAMP_SEC, 1.0)
+    return fade_in * fade_out
+
+
+def _synth_drums_and_bass(
+    t_sec: np.ndarray, beat_dur_sec: float, edge_env: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Synthesize smooth-attack 55Hz kick + 2.4kHz hat drums stem and F1/C2 bass stem."""
     two_pi = 2.0 * math.pi
-    drums = 0.45 * np.sin(two_pi * KICK_FREQ_HZ * t_sec) + 0.12 * np.sin(
-        two_pi * SNARE_FREQ_HZ * t_sec
+    beat_t = np.mod(t_sec, beat_dur_sec)
+    kick_env = np.minimum(beat_t / 0.005, 1.0) * (0.60 + 0.40 * np.exp(-beat_t / 0.22))
+    off_t = np.mod(t_sec + beat_dur_sec * 0.5, beat_dur_sec)
+    hat_env = np.minimum(off_t / 0.004, 1.0) * (0.22 + 0.78 * np.exp(-off_t / 0.16))
+    drums_raw = 0.37 * kick_env * np.sin(two_pi * KICK_FREQ_HZ * t_sec) + (
+        0.135 * hat_env * np.sin(two_pi * SNARE_FREQ_HZ * t_sec)
     )
-    bass = 0.50 * np.sin(two_pi * BASS_F1_HZ * t_sec) + 0.25 * np.sin(
+    bass_raw = 0.35 * np.sin(two_pi * BASS_F1_HZ * t_sec) + 0.12 * np.sin(
         two_pi * BASS_C2_HZ * t_sec
     )
-    drums[0] = 1.0
-    bass[0] = 1.0
-    return (drums, bass)
+    return (drums_raw * edge_env, bass_raw * edge_env)
 
 
-def _harmonic_triad(t_sec: np.ndarray, f1: float, f2: float, f3: float) -> np.ndarray:
-    """Synthesize a 3-partial harmonic waveform from frequencies (f1, f2, f3)."""
-    two_pi = 2.0 * math.pi
-    return (
-        0.25 * np.sin(two_pi * f1 * t_sec)
-        + 0.20 * np.sin(two_pi * f2 * t_sec)
-        + 0.15 * np.sin(two_pi * f3 * t_sec)
-    )
+def _synth_stepped_phrase(
+    t_sec: np.ndarray, total_sec: float, phrase_hz: tuple[float, ...],
+    overtone_ratio: float, overtone_mix: float,
+) -> np.ndarray:
+    """Synthesize a click-free 8-step musical motif across one 4/4 bar."""
+    step_dur = total_sec / float(len(phrase_hz))
+    step_idx = np.minimum((t_sec // step_dur).astype(int), len(phrase_hz) - 1)
+    step_t = np.mod(t_sec, step_dur)
+    freqs = np.asarray(phrase_hz, dtype=np.float64)[step_idx]
+    attack = np.minimum(step_t / 0.010, 1.0)
+    release = np.minimum(np.maximum(step_dur - step_t, 0.0) / 0.010, 1.0)
+    note_env = attack * release * (0.72 + 0.28 * np.exp(-step_t / 0.16))
+    phase = 2.0 * math.pi * freqs * t_sec
+    wave = (1.0 - overtone_mix) * np.sin(phase) + overtone_mix * np.sin(overtone_ratio * phase)
+    return 0.24 * note_env * wave
 
 
-def _synth_melodic_stems(t_sec: np.ndarray) -> dict[str, np.ndarray]:
+def _synth_melodic_stems(t_sec: np.ndarray, total_sec: float) -> dict[str, np.ndarray]:
     """Synthesize F Natural Minor piano, F Phrygian Sufi vocal, and 303 acid lead stems."""
     return {
-        "robert_miles_children": _harmonic_triad(t_sec, F4_HZ, AB4_HZ, C5_HZ),
-        "sufi_vocal": _harmonic_triad(t_sec, F4_HZ, GB4_HZ, F6_FORMANT_HZ),
-        "berlin_acid_synth": _harmonic_triad(t_sec, F3_HZ, GB4_HZ, F4_HZ * 2.0),
+        "robert_miles_children": _synth_stepped_phrase(
+            t_sec, total_sec, DREAM_PIANO_PHRASE_HZ, overtone_ratio=2.0, overtone_mix=0.18
+        ),
+        "sufi_vocal": _synth_stepped_phrase(
+            t_sec, total_sec, SUFI_VOCAL_PHRASE_HZ, overtone_ratio=3.0, overtone_mix=0.22
+        ),
+        "berlin_acid_synth": _synth_stepped_phrase(
+            t_sec, total_sec, ACID_LEAD_PHRASE_HZ, overtone_ratio=2.0, overtone_mix=0.25
+        ),
     }
 
 
 def synthesize_default_124bpm_stems(
     sample_rate: int = DEFAULT_SAMPLE_RATE, bpm: float = DEFAULT_BPM
 ) -> dict[str, np.ndarray]:
-    """Generate deterministic 1-bar sample-locked stems for drums, bass, and 3 motifs."""
+    """Generate deterministic 1-bar click-free stems for drums, bass, and 3 motifs."""
     clock = SampleClock(sample_rate=sample_rate, bpm=bpm)
     bar_samples = clock.beat_sample_index(BEATS_PER_BAR)
     t_sec = np.arange(bar_samples, dtype=np.float64) / float(sample_rate)
-    drums, bass = _synth_drums_and_bass(t_sec)
+    total_sec = float(bar_samples) / float(sample_rate)
+    edge_env = _bar_edge_envelope(t_sec, total_sec)
+    drums, bass = _synth_drums_and_bass(t_sec, total_sec / float(BEATS_PER_BAR), edge_env)
     stems = {"drums": drums, "bass": bass}
-    stems.update(_synth_melodic_stems(t_sec))
+    stems.update(_synth_melodic_stems(t_sec, total_sec))
     return stems
 
 

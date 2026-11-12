@@ -190,6 +190,16 @@ This document is the single source of truth for Acceptance Test-Driven Developme
   - Streams live stereo audio (`Left = Headphone Ghost Cue`, `Right = Main PA`) via WebAudio from `/api/v1/audio/frame.wav` and displays live HUD telemetry (3 Floating Memory Orbs, Active Gear, Scale Mode, Modal Lock badge, `CC 1` Filter cutoff, `drums` HPF Hz, and 4-Stage Bridge progress).
 - `src/future_music/infrastructure/fastapi_app.py` exports a module-level `app = create_empath_conductor_app()` and `main()` CLI entrypoint registered as `empath-conductor` in `pyproject.toml` (`[project.scripts]`).
 
+### REQ-14: Click-Free Normalized Synthesis & Creative-First Accessible Performance UX
+- **Clean Non-Clipping Audio Headroom**:
+  - `synthesize_default_124bpm_stems()` generates smooth-attack rhythmic waveforms starting cleanly near zero (`abs(stem[0]) < 0.05`, no vertical sample-0 DC pop), and `EmpathConductorFacade.render_live_stereo_frame()` applies master headroom trim so summed Main PA audio stays strictly non-clipping (`max(abs(stereo)) < 0.99`, zero flat-topped `±32767` clipping in `frame.wav`).
+- **Human-Friendly API Metadata**:
+  - `_serialize_orbs()` includes human-readable `title` and `native_mode` fields on each surfaced orb entry in `/api/v1/state`, `/api/v1/empath/mood`, and `/api/v1/deck/key` alongside `orb_slot`, `asset_id`, and `score`.
+- **Creative-First Performable Web Deck UX (`GET /`)**:
+  - Serves a clear, plain-language studio performance deck with zero raw technical jargon exposed on the main stage, built with semantic landmarks (`<header>`, `<main>`), single `<h1>`, `color-scheme: dark` theming tokens, and a single `aria-live="polite"` guided status banner telling the performer what step comes next.
+  - Provides one-click **Play / Pause Music** paired with an independent **Volume** slider (`<input type="range">`), scheduling streamed WAV blocks along a continuous `AudioContext.currentTime` cursor (zero timer-overlap stutter clicks).
+  - Surfaces interactive **Mood Vibe** chips (wired to `/api/v1/empath/mood`), clickable **Next Idea** track cards with clear **Mix It In** / **Cancel** buttons, clickable **Musical Color** selectors (`Q`/`W`/`E`), a pointer-and-Spacebar **Hold to Build Tension — Release to Drop!** pad, plain-language sound shapers (`Brightness` & `Busyness`), **Voice & Hum** studio controls (`/api/v1/whim/voice`, `/api/v1/whim/hum`), and a collapsible `<details>` drawer holding advanced CoreMIDI routing and keyboard shortcuts.
+
 ---
 
 ## 4. Software Craftsmanship, `[VERIFIED ENGINE]` Determinism & Testing Pyramid Rules
@@ -211,12 +221,12 @@ This document is the single source of truth for Acceptance Test-Driven Developme
 4. **Testing Pyramid & Zero-Mocking Invariant**:
    - **Unit Tests (`tests/unit/`)**: Fast, pure tests of all domain entities, value objects, music theory, biquad DSP math, sample-clock math, suck-back phase reset, lag-compensated pitch quantizer, cosine vector prism, spectral critic, and 4-stage bridge planner.
    - **Integration Tests (`tests/integration/`)**: Tests wiring real `application` use cases + real `domain` + real `infrastructure` adapters.
-   - **Acceptance Tests (`tests/acceptance/`)**: End-to-end ATDD scenario tests verifying every requirement (`REQ-01` through `REQ-13`) through the full unmocked application stack and FastAPI HTTP interface.
+   - **Acceptance Tests (`tests/acceptance/`)**: End-to-end ATDD scenario tests verifying every requirement (`REQ-01` through `REQ-14`) through the full unmocked application stack and FastAPI HTTP interface.
    - **Pyramid Invariant**: `count(unit_tests) > count(integration_tests) >= count(acceptance_tests) >= 1` (enforced by `scripts/verify_craftsmanship.py`).
    - **Zero Mocking Invariant**: `unittest.mock`, `MagicMock`, `AsyncMock`, `patch`, and `mocker` are strictly forbidden in `tests/` (enforced via AST check in `scripts/verify_craftsmanship.py`). Every test function must contain substantive `assert` statements or `pytest.raises` checks.
 5. **Gate 4 — Zero-Hollow-Infrastructure & Live Playability Invariant**:
    - Infrastructure adapters in `src/future_music/infrastructure/` must never act as disguised in-memory stubs or default to empty `0`-length audio buffers.
-   - `build_default_conductor_facade()` must produce non-zero audible stereo waveform output (`RMS > 0.05`) out of the box and open a real/virtual CoreMIDI port via `mido.open_output`.
+   - `build_default_conductor_facade()` must produce non-zero, non-clipping audible stereo waveform output (`RMS > 0.05`, `peak < 0.99`) out of the box and open a real/virtual CoreMIDI port via `mido.open_output`.
 
 ---
 
@@ -228,3 +238,4 @@ This document is the single source of truth for Acceptance Test-Driven Developme
 - **Slice 4**: Input Gating (`Hold V` vs. `Hold H`), `-80ms` Lag-Compensated Hum-to-MIDI Chord-Tone Quantizer, Deterministic Voice Whim Parser, Dual-Channel Ghost Preview (`STEREO_SPLIT` & `DUAL_DEVICE`), 4-Stage Lookahead Bridge Planner with Structured Tool Calls, and Pre-Play Spectral Critic (`REQ-07`, `REQ-08`, `REQ-09`).
 - **Slice 5**: MacBook Keyboard Empath Deck Controller (all 18 key/gate actions), Full Conductor Application Facade, and Agent-Ready FastAPI Service (`/api/openapi.json`, `/api/docs`, `/api/v1/*`) + Complete Acceptance Suite (`REQ-10`).
 - **Slice 6**: Live CoreMIDI `IAC Driver` Hardware Transmission (`REQ-11`), Pre-Synthesized `48000 Hz` `124 BPM` Stems + Live Transport & WAV Stream (`REQ-12`), and Interactive MacBook Keyboard + Mic Performance Deck UI (`GET /`) + `uv run empath-conductor` CLI Launcher (`REQ-13`).
+- **Slice 7**: Click-Free Normalized 124 BPM Synthesis, Human-Readable Orb Metadata, and Creative-First Layman-Friendly Accessible Web Deck UX (`REQ-14`).

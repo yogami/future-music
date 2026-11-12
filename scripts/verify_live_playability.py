@@ -24,12 +24,13 @@ def verify_midi_hardware_binding() -> list[str]:
 
 
 def verify_default_stems_are_audible() -> list[str]:
-    """Verify default facade renders RMS > 0.05 and enforces audio_stem_gain on scale shift."""
+    """Verify default facade renders RMS > 0.05, peak < 0.99, and enforces stem gain."""
     facade = build_default_conductor_facade()
     stereo = facade.render_live_stereo_frame(4800)
-    right_pa_rms = float(np.sqrt(np.mean(np.square(stereo[:, 1]))))
-    if right_pa_rms < 0.05:
-        return [f"GAP-2: Default Main PA audio output is silent (RMS={right_pa_rms:.4f})"]
+    right_rms = float(np.sqrt(np.mean(np.square(stereo[:, 1]))))
+    right_peak = float(np.max(np.abs(stereo[:, 1])))
+    if right_rms < 0.05 or right_peak >= 0.99:
+        return [f"GAP-2/REQ-14: Bad headroom (RMS={right_rms:.4f}, peak={right_peak:.4f})"]
     facade.handle_deck_key("W")
     if facade.clock_use_case.modal_engine.current_state().audio_stem_gain != 0.0:
         return ["GAP-2: Scale shift to Phrygian did not mute incompatible audio stem"]
@@ -37,13 +38,15 @@ def verify_default_stems_are_audible() -> list[str]:
 
 
 def verify_live_web_deck() -> list[str]:
-    """Verify module-level app, GET / keyboard deck, and /api/v1/whim/voice + hum wiring."""
+    """Verify module-level app, GET / deck, voice/hum/mood wiring, and volume slider."""
     if not hasattr(fastapi_app, "app"):
         return ["GAP-5: fastapi_app.py does not export a module-level 'app' instance"]
     ui_resp = TestClient(fastapi_app.app).get("/")
-    has_whim = {"/api/v1/whim/voice", "/api/v1/whim/hum"}.issubset(ui_resp.text.split("'"))
-    if ui_resp.status_code != 200 or not has_whim:
-        return ["GAP-3: GET / missing Live Deck HTML or /api/v1/whim/voice + hum wiring"]
+    tokens = ui_resp.text.split("'")
+    req_ep = {"/api/v1/whim/voice", "/api/v1/whim/hum", "/api/v1/empath/mood"}
+    is_ready = ui_resp.status_code == 200 and req_ep.issubset(tokens)
+    if not (is_ready and "volumeSlider" in ui_resp.text):
+        return ["GAP-3/REQ-14: GET / missing Live Deck UI, volume control, or API wiring"]
     return []
 
 

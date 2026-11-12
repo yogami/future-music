@@ -66,9 +66,15 @@ class HumContourRequest(BaseModel):
 
 
 def _serialize_orbs(snap: ConductorSnapshot) -> list[dict[str, Any]]:
-    """Serialize surfaced Memory Orbs for JSON output."""
+    """Serialize surfaced Memory Orbs with human-friendly titles and native modes."""
     return [
-        {"orb_slot": o.orb_slot, "asset_id": o.asset.asset_id, "score": round(o.score, 4)}
+        {
+            "orb_slot": o.orb_slot,
+            "asset_id": o.asset.asset_id,
+            "title": o.asset.title,
+            "native_mode": o.asset.native_mode.value,
+            "score": round(o.score, 4),
+        }
         for o in snap.surfaced_orbs
     ]
 
